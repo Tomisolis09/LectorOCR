@@ -25,6 +25,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Permite "Compartir" una foto o un PDF a Lector OCR desde WhatsApp, la galería, etc. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+
             <!-- Permite "Abrir con..." desde otras apps o el gestor de archivos -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

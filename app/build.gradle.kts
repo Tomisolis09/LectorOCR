@@ -101,6 +101,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.09.03"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-core")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
@@ -108,6 +109,8 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     // Texto de PDFs digitales (Apache 2.0)
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    // Escáner de documentos con la cámara (gratis, de Google)
+    implementation("com.google.android.gms:play-services-mlkit-document-scanner:16.0.0-beta1")
     // Publicidad (AdMob)
     implementation("com.google.android.gms:play-services-ads:23.6.0")
 }

@@ -27,6 +27,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import android.net.Uri
+import androidx.activity.result.IntentSenderRequest
+import androidx.compose.material3.TextButton
+import androidx.core.content.IntentCompat
+import com.google.mlkit.vision.documentscanner.GmsDocumentScannerOptions
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanning
+import com.google.mlkit.vision.documentscanner.GmsDocumentScanningResult
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -76,13 +92,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         PDFBoxResourceLoader.init(applicationContext)
         Ads.init(applicationContext)
-        if (savedInstanceState == null) intent?.data?.let { vm.open(it) }
+        if (savedInstanceState == null) handleIntent(intent)
         setContent { MaterialTheme { App(vm) } }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.data?.let { vm.open(it) }
+        handleIntent(intent)
+    }
+
+    /** "Abrir con…" (VIEW) o "Compartir" (SEND) desde otra app. Con Compartir se extrae el texto enseguida. */
+    private fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        val shared = intent.action == Intent.ACTION_SEND
+        val uri: Uri? = intent.data
+            ?: if (shared) IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java) else null
+        uri?.let { vm.open(it, autoExtract = shared) }
     }
 }
 
@@ -106,6 +131,30 @@ fun App(vm: MainViewModel) {
         if (uri != null) {
             context.contentResolver.openOutputStream(uri)?.use { it.write(state.text.toByteArray()) }
             Toast.makeText(context, "Guardado", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Escáner de documentos de Google (gratis): recorta y endereza la hoja con la cámara
+    val scanner = remember {
+        GmsDocumentScanning.getClient(
+            GmsDocumentScannerOptions.Builder()
+                .setGalleryImportAllowed(true)
+                .setPageLimit(10)
+                .setResultFormats(GmsDocumentScannerOptions.RESULT_FORMAT_JPEG)
+                .setScannerMode(GmsDocumentScannerOptions.SCANNER_MODE_FULL)
+                .build()
+        )
+    }
+    val scanLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val uris = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
+                ?.pages?.map { it.imageUri }.orEmpty()
+            if (uris.isNotEmpty()) {
+                vm.scan(uris)
+                tab = 0
+            }
         }
     }
 
@@ -137,13 +186,39 @@ fun App(vm: MainViewModel) {
                 Modifier.padding(12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Button(onClick = { openLauncher.launch(arrayOf("*/*")) }) {
-                    Text("Abrir archivo")
-                }
+                val btnPad = PaddingValues(horizontal = 8.dp)
+                Button(
+                    onClick = { openLauncher.launch(arrayOf("*/*")) },
+                    modifier = Modifier.weight(1f),
+                    contentPadding = btnPad,
+                ) { Text("Abrir", maxLines = 1) }
+                Button(
+                    onClick = {
+                        val activity = context as? Activity
+                        if (activity != null) {
+                            scanner.getStartScanIntent(activity)
+                                .addOnSuccessListener { sender ->
+                                    scanLauncher.launch(IntentSenderRequest.Builder(sender).build())
+                                }
+                                .addOnFailureListener {
+                                    Toast.makeText(
+                                        context,
+                                        "No se pudo abrir el escáner. Revisá tu conexión y Google Play Services.",
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                        }
+                    },
+                    enabled = !state.busy,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = btnPad,
+                ) { Text("Escanear", maxLines = 1) }
                 FilledTonalButton(
                     onClick = vm::extractText,
-                    enabled = state.doc != null && state.doc !is Doc.Plain &&!state.busy,
-                ) { Text("Extraer texto") }
+                    enabled = state.doc != null && state.doc !is Doc.Plain && !state.busy,
+                    modifier = Modifier.weight(1f),
+                    contentPadding = btnPad,
+                ) { Text("Extraer texto", maxLines = 1) }
             }
 
             if (state.busy) {
@@ -297,20 +372,79 @@ fun TextView(
             )
         }
     } else {
+        // Por líneas y en lista perezosa: aguanta textos y planillas grandes
+        val lines = remember(text) { text.lines() }
+        val folded = remember(lines) { lines.map { fold(it) } }
+        var searching by rememberSaveable { mutableStateOf(false) }
+        var query by rememberSaveable { mutableStateOf("") }
+        var current by rememberSaveable { mutableIntStateOf(0) }
+        val q = remember(query) { fold(query.trim()) }
+        val matches = remember(folded, q) { findMatches(folded, q) }
+        val byLine = remember(matches) { matches.groupBy({ it.line }, { it.start }) }
+        val currentMatch = matches.getOrNull(current)
+        val listState = rememberLazyListState()
+        var showData by rememberSaveable { mutableStateOf(false) }
+        val found by produceState(emptyList<FoundData>(), text) {
+            value = withContext(Dispatchers.Default) { DataDetector.detect(text) }
+        }
+
+        LaunchedEffect(text) { current = 0 }
+        LaunchedEffect(currentMatch) {
+            currentMatch?.let { listState.animateScrollToItem(it.line) }
+        }
+
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                OutlinedButton(onClick = onCopy) { Text("Copiar") }
-                OutlinedButton(onClick = onShare) { Text("Compartir") }
-                OutlinedButton(onClick = onSave) { Text("Guardar .txt") }
+                val pad = PaddingValues(horizontal = 12.dp)
+                OutlinedButton(onClick = onCopy, contentPadding = pad) { Text("Copiar") }
+                OutlinedButton(onClick = onShare, contentPadding = pad) { Text("Compartir") }
+                OutlinedButton(onClick = onSave, contentPadding = pad) { Text("Guardar .txt") }
+                IconButton(onClick = { searching = !searching }) {
+                    Icon(Icons.Filled.Search, contentDescription = "Buscar en el texto")
+                }
             }
-            // Por líneas y en lista perezosa: aguanta textos y planillas grandes
-            val lines = remember(text) { text.lines() }
+            if (found.isNotEmpty()) {
+                TextButton(
+                    onClick = { showData = true },
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                ) { Text("Datos detectados (${found.size})") }
+            }
+            if (showData) DataDialog(found) { showData = false }
+            if (searching) {
+                SearchBar(
+                    query = query,
+                    onQuery = {
+                        query = it
+                        current = 0
+                    },
+                    counter = when {
+                        q.isEmpty() -> ""
+                        matches.isEmpty() -> "0"
+                        else -> "${current + 1}/${matches.size}"
+                    },
+                    onPrev = {
+                        if (matches.isNotEmpty()) current = (current - 1 + matches.size) % matches.size
+                    },
+                    onNext = {
+                        if (matches.isNotEmpty()) current = (current + 1) % matches.size
+                    },
+                    onClose = {
+                        searching = false
+                        query = ""
+                    },
+                )
+            }
             SelectionContainer(Modifier.weight(1f)) {
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
-                    items(lines) { line -> Text(line.ifEmpty { " " }) }
+                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 12.dp), state = listState) {
+                    itemsIndexed(lines) { i, line ->
+                        Text(
+                            highlight(line, byLine[i], q.length, currentMatch?.takeIf { it.line == i }?.start)
+                        )
+                    }
                 }
             }
         }

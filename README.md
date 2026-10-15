@@ -16,6 +16,18 @@ La lectura y el OCR funcionan dentro del celular, sin internet y sin costos. Sol
 No soporta los formatos viejos `.xls`, `.doc`, `.ppt` (guardalos como `.xlsx`, `.docx`, `.pptx`).
 En las planillas, las fechas aparecen como el número interno de Excel y las fórmulas muestran su último resultado guardado.
 
+## Escanear con la cámara
+El botón **Escanear** abre el escáner de documentos de Google (gratis): recorta y endereza la hoja, permite varias páginas e importar desde la galería, y la app extrae el texto de todas. La primera vez descarga un módulo por internet y requiere Google Play Services.
+
+## Compartir hacia Lector OCR
+Desde WhatsApp, la galería o el gestor de archivos, tocá **Compartir** sobre una foto o un PDF y elegí **Lector OCR**: la app lo abre y extrae el texto sola.
+
+## Datos detectados
+Si el texto contiene teléfonos, correos, enlaces, CUIT/CUIL (se valida el dígito verificador), CBU o alias de pago, aparece el botón **Datos detectados (N)**. Cada dato se copia con un toque y, según el tipo, se puede llamar, escribir o abrir.
+
+## Buscar en el texto
+En la pestaña **Texto**, tocá la **lupa** y escribí la palabra: se resaltan todas las coincidencias (la actual en naranja), aparece el contador (ej. `3/12`) y con las flechas ▲ ▼ saltás de una a otra. Ignora mayúsculas y tildes. Para copiar la palabra, mantenela apretada sobre el texto y elegí Copiar.
+
 ## Correrlo en tu celular
 1. Abrí la carpeta en **Android Studio** y dejá que sincronice Gradle
    (si ofrece actualizar versiones de Gradle/AGP/Kotlin, aceptá; también genera `gradlew`).
@@ -99,3 +111,5 @@ Pasá el APK al celular y abrilo; Android te pedirá permitir "instalar apps de 
 - `PdfSource.kt` – dibujar páginas de PDF
 - `OcrEngine.kt` – reconocimiento de texto con ML Kit
 - `Ads.kt` – banner y anuncio a pantalla completa (AdMob)
+- `TextSearch.kt` – búsqueda dentro del texto extraído (lupa)
+- `DataDetector.kt` / `DataDialog.kt` – detección y lista de datos (teléfonos, CUIT, CBU…)

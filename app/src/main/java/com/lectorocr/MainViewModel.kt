@@ -55,7 +55,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // ---------- Abrir archivo ----------
 
-    fun open(uri: Uri) {
+    fun open(uri: Uri, autoExtract: Boolean = false) {
         viewModelScope.launch {
             try {
                 val name = displayName(uri)
@@ -63,6 +63,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 val loaded = withContext(Dispatchers.IO) { load(uri, name, mime) }
                 (_state.value.doc as? Doc.Pdf)?.source?.close()
                 _state.value = UiState(doc = loaded.doc, text = loaded.text)
+                // Archivos recibidos con "Compartir": se extrae el texto directamente
+                if (autoExtract && (loaded.doc is Doc.Img || loaded.doc is Doc.Pdf)) extractText()
             } catch (e: OutOfMemoryError) {
                 _state.update { it.copy(error = "El archivo es demasiado grande para abrirlo") }
             } catch (e: Exception) {
@@ -117,6 +119,45 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (biggest > 3000) {
                 val f = 3000f / biggest
                 decoder.setTargetSize((info.size.width * f).toInt(), (info.size.height * f).toInt())
+            }
+        }
+    }
+
+    // ---------- Escaneo con la cámara ----------
+
+    /** Recibe las páginas escaneadas (imágenes), muestra la primera y extrae el texto de todas. */
+    fun scan(uris: List<Uri>) {
+        if (uris.isEmpty() || _state.value.busy) return
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, progress = "Leyendo el escaneo…") }
+            try {
+                val first = withContext(Dispatchers.IO) { loadBitmap(uris.first()) }
+                (_state.value.doc as? Doc.Pdf)?.source?.close()
+                _state.update { it.copy(doc = Doc.Img(first, "Escaneo de cámara"), text = "") }
+
+                val sb = StringBuilder()
+                for ((i, u) in uris.withIndex()) {
+                    _state.update { it.copy(progress = "Página ${i + 1} de ${uris.size}") }
+                    val bmp = if (i == 0) first else withContext(Dispatchers.IO) { loadBitmap(u) }
+                    val t = OcrEngine.recognize(bmp).trim()
+                    if (uris.size > 1) sb.append("— Página ${i + 1} —\n")
+                    sb.append(t).append("\n\n")
+                }
+                val text = sb.toString().trim()
+                _state.update {
+                    it.copy(
+                        text = text,
+                        busy = false,
+                        progress = "",
+                        error = if (text.isBlank()) "No se detectó texto en el escaneo" else null,
+                    )
+                }
+            } catch (e: OutOfMemoryError) {
+                _state.update { it.copy(busy = false, progress = "", error = "El escaneo es demasiado grande") }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, progress = "", error = e.message ?: "No se pudo leer el escaneo")
+                }
             }
         }
     }
