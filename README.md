@@ -1,0 +1,101 @@
+# Lector OCR (Android, Kotlin + Jetpack Compose)
+
+App que abre **PDF, imágenes, archivos de texto, hojas de cálculo y documentos**, y **extrae el texto**.
+La lectura y el OCR funcionan dentro del celular, sin internet y sin costos. Solo la publicidad necesita conexión.
+
+## Qué lee
+| Tipo | Formatos | Cómo |
+|---|---|---|
+| PDF | `.pdf` | Si la página trae texto lo lee directo; si es un escaneo, usa OCR |
+| Imágenes | jpg, png, webp, bmp, gif, heic | OCR en el dispositivo (ML Kit) |
+| Texto | txt, csv, tsv, md, json, xml, log, html, código… | Lectura directa (detecta UTF-8 / Windows-1252) |
+| Hojas de cálculo | `.xlsx`, `.xlsm`, `.ods` | Todas las hojas; una fila por línea, celdas separadas por tabulación |
+| Documentos | `.docx`, `.odt` | Texto y tablas |
+| Presentaciones | `.pptx`, `.odp` | Texto de cada diapositiva |
+
+No soporta los formatos viejos `.xls`, `.doc`, `.ppt` (guardalos como `.xlsx`, `.docx`, `.pptx`).
+En las planillas, las fechas aparecen como el número interno de Excel y las fórmulas muestran su último resultado guardado.
+
+## Correrlo en tu celular
+1. Abrí la carpeta en **Android Studio** y dejá que sincronice Gradle
+   (si ofrece actualizar versiones de Gradle/AGP/Kotlin, aceptá; también genera `gradlew`).
+2. Conectá el celular (depuración USB) o abrí un emulador y tocá **Run**.
+
+## Subir al repositorio
+```bash
+git init -b main
+git add .
+git commit -m "Lector OCR"
+git remote add origin https://github.com/TU_USUARIO/TU_REPO.git
+git push -u origin main
+```
+El `.gitignore` ya excluye `local.properties` y las claves de firma (`*.jks`, `*.keystore`).
+
+## Generar el APK
+**Con GitHub Actions (automático):** cada `push` a `main` ejecuta `.github/workflows/build-apk.yml`.
+Al terminar, el APK está en la pestaña **Actions → la ejecución → Artifacts → LectorOCR-apk**.
+
+**En tu PC:** `Build > Generate Signed App Bundle / APK > APK` en Android Studio,
+o por consola: `./gradlew assembleRelease`.
+
+## Firmar el APK
+Un APK tiene que estar firmado para instalarse. Sin firma de release sale como `app-release-unsigned.apk`.
+
+1. **Crear el keystore (una sola vez):**
+   ```bash
+   keytool -genkeypair -v -keystore lector-release.jks -alias lector \
+     -keyalg RSA -keysize 2048 -validity 10000
+   ```
+   Guardalo en un lugar seguro y hacé una copia de respaldo: **si lo perdés, no podés publicar actualizaciones** de la misma app. No lo subas al repositorio.
+
+2. **Firmar en GitHub Actions:** en el repo, `Settings > Secrets and variables > Actions > New repository secret`, creá:
+   - `KEYSTORE_BASE64`: contenido del keystore en base64 (`base64 -w0 lector-release.jks`; en Mac: `base64 -i lector-release.jks`)
+   - `KEYSTORE_PASSWORD`: contraseña del keystore
+   - `KEY_ALIAS`: `lector`
+   - `KEY_PASSWORD`: contraseña de la clave
+
+   Desde ese momento el workflow genera `app-release.apk` ya firmado.
+
+3. **Firmar en tu PC con Gradle:** definí las mismas variables antes de compilar:
+   ```bash
+   export KEYSTORE_FILE=/ruta/lector-release.jks
+   export KEYSTORE_PASSWORD=...
+   export KEY_ALIAS=lector
+   export KEY_PASSWORD=...
+   ./gradlew assembleRelease
+   ```
+
+4. **Firmar un APK ya generado (alternativa):**
+   ```bash
+   zipalign -p -f 4 app-release-unsigned.apk alineado.apk
+   apksigner sign --ks lector-release.jks --out LectorOCR.apk alineado.apk
+   apksigner verify LectorOCR.apk
+   ```
+   (`zipalign` y `apksigner` están en `Android/Sdk/build-tools/<versión>/`.)
+
+## Instalar
+Pasá el APK al celular y abrilo; Android te pedirá permitir "instalar apps de orígenes desconocidos" para ese gestor de archivos.
+
+## Publicidad (AdMob)
+- **Banner** fijo abajo y **anuncio a pantalla completa** como máximo una vez cada 5 minutos, solo al terminar de extraer texto o al abrir un archivo (nunca mientras se lee). El primero sale a los 5 minutos de abrir la app.
+- Los builds **debug** usan siempre anuncios de prueba de Google. Los **release** usan tus IDs; si no los cargás, también salen de prueba.
+- En AdMob: registrá la app Android con el paquete `com.lectorocr` y creá dos bloques de anuncios (Banner e Intersticial). Vas a tener 3 IDs:
+  - `ADMOB_APP_ID` (termina en `~número`)
+  - `ADMOB_BANNER_ID` (termina en `/número`)
+  - `ADMOB_INTERSTITIAL_ID` (termina en `/número`)
+- **GitHub Actions:** cargalos en `Settings > Secrets and variables > Actions > Variables` con esos mismos nombres.
+- **En tu PC:** agregalos a `gradle.properties` (o definí las variables de entorno) antes de `./gradlew assembleRelease`.
+- Nunca toques tus propios anuncios reales: AdMob puede suspender la cuenta.
+
+## Licencias y costos
+- Android Studio, Kotlin, Jetpack Compose, GitHub Actions (repos públicos): gratis.
+- PdfBox-Android: Apache 2.0. ML Kit Text Recognition: uso gratuito, corre en el dispositivo.
+- Solo si publicás en Google Play hay un pago único de USD 25; repartir el APK por tu cuenta no cuesta nada.
+
+## Estructura
+- `MainActivity.kt` – interfaz (Compose)
+- `MainViewModel.kt` – abrir archivos y lógica de extracción
+- `TextExtractor.kt` – texto, hojas de cálculo, documentos y presentaciones
+- `PdfSource.kt` – dibujar páginas de PDF
+- `OcrEngine.kt` – reconocimiento de texto con ML Kit
+- `Ads.kt` – banner y anuncio a pantalla completa (AdMob)
