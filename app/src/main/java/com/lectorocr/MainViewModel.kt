@@ -10,7 +10,9 @@ import androidx.lifecycle.viewModelScope
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -52,6 +54,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val _state = MutableStateFlow(UiState())
     val state: StateFlow<UiState> = _state.asStateFlow()
+
+    /** Se emite cada vez que termina una lectura de imagen/PDF o un escaneo (para la publicidad). */
+    private val _readingDone = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
+    val readingDone: SharedFlow<Unit> = _readingDone
 
     private val resolver get() = getApplication<Application>().contentResolver
 
@@ -187,7 +193,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ---------- Escaneo con la cámara ----------
 
     /** Recibe las páginas escaneadas (imágenes), muestra la primera y extrae el texto de todas. */
-    fun scan(uris: List<Uri>) {
+    fun scan(uris: List<Uri>, translateTo: Lang? = null) {
         if (uris.isEmpty() || _state.value.busy) return
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = null, progress = "Leyendo el escaneo…") }
@@ -215,6 +221,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         error = if (text.isBlank()) "No se detectó texto en el escaneo" else null,
                     )
                 }
+                _readingDone.tryEmit(Unit)
+                // Traducir con la cámara: se escanea y se traduce enseguida
+                if (translateTo != null && text.isNotBlank()) translate(translateTo.tag, translateTo.name)
             } catch (e: OutOfMemoryError) {
                 _state.update { it.copy(busy = false, progress = "", error = "El escaneo es demasiado grande") }
             } catch (e: Exception) {
@@ -241,6 +250,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update {
                     it.copy(text = text.trim(), busy = false, progress = "", original = null, translatedTo = null)
                 }
+                _readingDone.tryEmit(Unit)
             } catch (e: OutOfMemoryError) {
                 _state.update {
                     it.copy(busy = false, progress = "", error = "El archivo es demasiado grande para procesarlo")

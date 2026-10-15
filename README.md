@@ -32,6 +32,8 @@ En la pestaña **Texto**, tocá la **lupa** y escribí la palabra: se resaltan t
 El botón **Borrar** (arriba a la derecha) quita el documento y el texto, previa confirmación, para empezar de nuevo.
 
 ## Traductor
+Con **Traducir con la cámara** elegís el idioma, escaneás la hoja y se lee y traduce de una vez.
+
 En la pestaña Texto, **Traducir** elige el idioma de destino (el de origen se detecta solo) con ML Kit, gratis y dentro del celular. Cada idioma se descarga una vez (hace falta internet esa primera vez); después funciona sin conexión. Traduce hasta 50.000 caracteres y **Ver original** vuelve al texto sin traducir.
 
 ## Correrlo en tu celular
@@ -95,7 +97,8 @@ Un APK tiene que estar firmado para instalarse. Si no cargás tu keystore, el AP
 Pasá el APK al celular y abrilo; Android te pedirá permitir "instalar apps de orígenes desconocidos" para ese gestor de archivos.
 
 ## Publicidad (AdMob)
-- **Banner** fijo abajo y **anuncio a pantalla completa** como máximo una vez cada 5 minutos, solo al terminar de extraer texto o al abrir un archivo (nunca mientras se lee). El primero sale a los 5 minutos de abrir la app.
+- **Banner** siempre fijo abajo y **anuncio a pantalla completa** (imagen o video, lo elige AdMob) una vez cada 3 lecturas o escaneos, al terminar (nunca mientras se lee). Para que salgan anuncios con video, en AdMob dejá el bloque del intersticial con formato «Imagen y video» (es el predeterminado).
+- Para cambiar cada cuántas lecturas sale, editá `EVERY` en `Ads.kt`.
 - Los builds **debug** usan siempre anuncios de prueba de Google. Los **release** usan tus IDs; si no los cargás, también salen de prueba.
 - En AdMob: registrá la app Android con el paquete `com.lectorocr` y creá dos bloques de anuncios (Banner e Intersticial). Vas a tener 3 IDs:
   - `ADMOB_APP_ID` (termina en `~número`)

@@ -2,7 +2,6 @@ package com.lectorocr
 
 import android.app.Activity
 import android.content.Context
-import android.os.SystemClock
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -22,22 +21,21 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 
 /**
  * Publicidad con AdMob.
- *  - Banner fijo abajo (adaptable al ancho de la pantalla).
- *  - Anuncio a pantalla completa: como máximo uno cada 5 minutos, y solo en momentos
- *    naturales (al terminar de extraer texto o al abrir un archivo), nunca mientras se lee.
+ *  - Banner fijo abajo (adaptable al ancho de la pantalla), siempre visible.
+ *  - Anuncio a pantalla completa (imagen o video, según lo que entregue AdMob):
+ *    uno cada 3 lecturas o escaneos, al terminar, nunca mientras se lee.
  *
  * Los IDs vienen de BuildConfig: en debug siempre son los de prueba de Google.
  */
 object Ads {
 
-    private const val INTERVAL_MS = 5 * 60 * 1000L
+    /** Cada cuántas lecturas/escaneos sale el anuncio completo. */
+    private const val EVERY = 3
 
     private var started = false
     private var loading = false
     private var interstitial: InterstitialAd? = null
-
-    // El contador arranca al abrir la app: el primer anuncio completo sale a los 5 minutos.
-    private var lastShown = SystemClock.elapsedRealtime()
+    private var readings = 0
 
     fun init(context: Context) {
         if (started) return
@@ -67,23 +65,21 @@ object Ads {
         )
     }
 
-    /** Muestra el anuncio completo solo si ya pasaron 5 minutos desde el último. */
-    fun maybeShow(activity: Activity) {
+    /** Llamar al terminar cada lectura o escaneo: cada 3 muestra el anuncio completo. */
+    fun onReading(activity: Activity) {
+        readings++
+        if (readings < EVERY) return
         val ad = interstitial
         if (ad == null) {
+            // Todavía no cargó: se intenta de nuevo en la próxima lectura
             loadInterstitial(activity.applicationContext)
             return
         }
-        if (SystemClock.elapsedRealtime() - lastShown < INTERVAL_MS) return
+        readings = 0
 
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdShowedFullScreenContent() {
-                lastShown = SystemClock.elapsedRealtime()
-            }
-
             override fun onAdDismissedFullScreenContent() {
                 interstitial = null
-                lastShown = SystemClock.elapsedRealtime()
                 loadInterstitial(activity.applicationContext)
             }
 

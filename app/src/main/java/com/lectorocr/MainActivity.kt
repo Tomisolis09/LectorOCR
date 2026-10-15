@@ -122,6 +122,8 @@ fun App(vm: MainViewModel) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
+    var showCamLang by rememberSaveable { mutableStateOf(false) }
+    var camLang by remember { mutableStateOf<Lang?>(null) }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -156,10 +158,27 @@ fun App(vm: MainViewModel) {
             val uris = GmsDocumentScanningResult.fromActivityResultIntent(result.data)
                 ?.pages?.map { it.imageUri }.orEmpty()
             if (uris.isNotEmpty()) {
-                vm.scan(uris)
+                vm.scan(uris, camLang)
+                camLang = null
                 tab = 0
             }
         }
+    }
+
+    fun startScan(lang: Lang?) {
+        camLang = lang
+        val activity = context as? Activity ?: return
+        scanner.getStartScanIntent(activity)
+            .addOnSuccessListener { sender ->
+                scanLauncher.launch(IntentSenderRequest.Builder(sender).build())
+            }
+            .addOnFailureListener {
+                Toast.makeText(
+                    context,
+                    "No se pudo abrir el escáner. Revisá tu conexión y Google Play Services.",
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
     }
 
     LaunchedEffect(state.error) {
@@ -168,16 +187,13 @@ fun App(vm: MainViewModel) {
             vm.clearError()
         }
     }
-    // Al terminar la extracción, mostrar la pestaña de texto y (si toca) el anuncio completo
+    // Al terminar la extracción, mostrar la pestaña de texto
     LaunchedEffect(state.text) {
-        if (state.text.isNotEmpty()) {
-            tab = 1
-            (context as? Activity)?.let { Ads.maybeShow(it) }
-        }
+        if (state.text.isNotEmpty()) tab = 1
     }
-    // Al abrir un archivo nuevo también es un buen momento (si pasaron 5 minutos)
-    LaunchedEffect(state.doc) {
-        if (state.doc != null) (context as? Activity)?.let { Ads.maybeShow(it) }
+    // Anuncio a pantalla completa: uno cada 3 lecturas o escaneos
+    LaunchedEffect(Unit) {
+        vm.readingDone.collect { (context as? Activity)?.let { Ads.onReading(it) } }
     }
 
     if (confirmClear) {
@@ -222,22 +238,7 @@ fun App(vm: MainViewModel) {
                     contentPadding = btnPad,
                 ) { Text("Abrir", maxLines = 1) }
                 Button(
-                    onClick = {
-                        val activity = context as? Activity
-                        if (activity != null) {
-                            scanner.getStartScanIntent(activity)
-                                .addOnSuccessListener { sender ->
-                                    scanLauncher.launch(IntentSenderRequest.Builder(sender).build())
-                                }
-                                .addOnFailureListener {
-                                    Toast.makeText(
-                                        context,
-                                        "No se pudo abrir el escáner. Revisá tu conexión y Google Play Services.",
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                }
-                        }
-                    },
+                    onClick = { startScan(null) },
                     enabled = !state.busy,
                     modifier = Modifier.weight(1f),
                     contentPadding = btnPad,
@@ -249,6 +250,20 @@ fun App(vm: MainViewModel) {
                     contentPadding = btnPad,
                 ) { Text("Extraer texto", maxLines = 1) }
             }
+
+            OutlinedButton(
+                onClick = { showCamLang = true },
+                enabled = !state.busy,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            ) { Text("Traducir con la cámara", maxLines = 1) }
+
+            if (showCamLang) LanguageDialog(
+                onPick = {
+                    showCamLang = false
+                    startScan(it)
+                },
+                onClose = { showCamLang = false },
+            )
 
             if (state.busy) {
                 LinearProgressIndicator(Modifier.fillMaxWidth())
