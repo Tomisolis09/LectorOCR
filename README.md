@@ -28,6 +28,12 @@ Si el texto contiene teléfonos, correos, enlaces, CUIT/CUIL (se valida el dígi
 ## Buscar en el texto
 En la pestaña **Texto**, tocá la **lupa** y escribí la palabra: se resaltan todas las coincidencias (la actual en naranja), aparece el contador (ej. `3/12`) y con las flechas ▲ ▼ saltás de una a otra. Ignora mayúsculas y tildes. Para copiar la palabra, mantenela apretada sobre el texto y elegí Copiar.
 
+## Borrar y empezar otra lectura
+El botón **Borrar** (arriba a la derecha) quita el documento y el texto, previa confirmación, para empezar de nuevo.
+
+## Traductor
+En la pestaña Texto, **Traducir** elige el idioma de destino (el de origen se detecta solo) con ML Kit, gratis y dentro del celular. Cada idioma se descarga una vez (hace falta internet esa primera vez); después funciona sin conexión. Traduce hasta 50.000 caracteres y **Ver original** vuelve al texto sin traducir.
+
 ## Correrlo en tu celular
 1. Abrí la carpeta en **Android Studio** y dejá que sincronice Gradle
    (si ofrece actualizar versiones de Gradle/AGP/Kotlin, aceptá; también genera `gradlew`).

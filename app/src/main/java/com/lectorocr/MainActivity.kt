@@ -16,6 +16,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -44,6 +46,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -118,6 +121,7 @@ fun App(vm: MainViewModel) {
     val context = LocalContext.current
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val snackbar = remember { SnackbarHostState() }
+    var confirmClear by rememberSaveable { mutableStateOf(false) }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -176,8 +180,33 @@ fun App(vm: MainViewModel) {
         if (state.doc != null) (context as? Activity)?.let { Ads.maybeShow(it) }
     }
 
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("¿Borrar y empezar otra lectura?") },
+            text = { Text("Se quita el documento y el texto que ves ahora. Si querés conservarlo, antes copialo o guardalo.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmClear = false
+                    vm.clear()
+                    tab = 0
+                }) { Text("Borrar") }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("Cancelar") } },
+        )
+    }
+
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Lector OCR") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Lector OCR") },
+                actions = {
+                    if (state.doc != null || state.text.isNotEmpty()) {
+                        TextButton(onClick = { confirmClear = true }, enabled = !state.busy) { Text("Borrar") }
+                    }
+                },
+            )
+        },
         bottomBar = { BannerAd(Modifier.fillMaxWidth()) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { pad ->
@@ -237,6 +266,10 @@ fun App(vm: MainViewModel) {
                 TextView(
                     text = state.text,
                     hasDoc = state.doc != null,
+                    translatedTo = state.translatedTo,
+                    busy = state.busy,
+                    onTranslate = { lang -> vm.translate(lang.tag, lang.name) },
+                    onShowOriginal = vm::showOriginal,
                     onCopy = {
                         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         cm.setPrimaryClip(ClipData.newPlainText("texto", state.text))
@@ -359,6 +392,10 @@ fun Zoomable(content: @Composable () -> Unit) {
 fun TextView(
     text: String,
     hasDoc: Boolean,
+    translatedTo: String?,
+    busy: Boolean,
+    onTranslate: (Lang) -> Unit,
+    onShowOriginal: () -> Unit,
     onCopy: () -> Unit,
     onShare: () -> Unit,
     onSave: () -> Unit,
@@ -384,6 +421,7 @@ fun TextView(
         val currentMatch = matches.getOrNull(current)
         val listState = rememberLazyListState()
         var showData by rememberSaveable { mutableStateOf(false) }
+        var showLang by rememberSaveable { mutableStateOf(false) }
         val found by produceState(emptyList<FoundData>(), text) {
             value = withContext(Dispatchers.Default) { DataDetector.detect(text) }
         }
@@ -407,12 +445,26 @@ fun TextView(
                     Icon(Icons.Filled.Search, contentDescription = "Buscar en el texto")
                 }
             }
-            if (found.isNotEmpty()) {
-                TextButton(
-                    onClick = { showData = true },
-                    modifier = Modifier.padding(horizontal = 8.dp),
-                ) { Text("Datos detectados (${found.size})") }
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = { showLang = true }, enabled = !busy) { Text("Traducir") }
+                if (translatedTo != null) {
+                    TextButton(onClick = onShowOriginal, enabled = !busy) { Text("Ver original") }
+                    Text("Traducido a $translatedTo", style = MaterialTheme.typography.labelMedium)
+                }
+                if (found.isNotEmpty()) {
+                    TextButton(onClick = { showData = true }) { Text("Datos detectados (${found.size})") }
+                }
             }
+            if (showLang) LanguageDialog(
+                onPick = {
+                    showLang = false
+                    onTranslate(it)
+                },
+                onClose = { showLang = false },
+            )
             if (showData) DataDialog(found) { showData = false }
             if (searching) {
                 SearchBar(

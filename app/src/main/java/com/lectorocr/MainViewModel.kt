@@ -34,6 +34,10 @@ data class UiState(
     val busy: Boolean = false,
     val progress: String = "",
     val error: String? = null,
+    /** Texto original, mientras se muestra una traducción. */
+    val original: String? = null,
+    /** Nombre del idioma al que está traducido el texto que se ve. */
+    val translatedTo: String? = null,
 )
 
 class MainViewModel(app: Application) : AndroidViewModel(app) {
@@ -123,6 +127,63 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---------- Borrar / empezar otra lectura ----------
+
+    fun clear() {
+        if (_state.value.busy) return
+        (_state.value.doc as? Doc.Pdf)?.source?.close()
+        _state.value = UiState()
+    }
+
+    // ---------- Traducir ----------
+
+    fun translate(targetTag: String, targetName: String) {
+        val current = _state.value
+        val source = current.original ?: current.text
+        if (source.isBlank() || current.busy) return
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = null, progress = "Detectando el idioma…") }
+            try {
+                val sample = source.take(2000)
+                val sourceTag = TranslatorEngine.detect(sample)
+                    ?: error("No se pudo detectar el idioma del texto")
+                if (sourceTag == targetTag) error("El texto ya está en ese idioma")
+
+                _state.update { it.copy(progress = "Preparando el idioma (la primera vez se descarga)…") }
+                val limited = source.take(TranslatorEngine.MAX_CHARS)
+                var result = TranslatorEngine.translate(limited, sourceTag, targetTag) { done, total ->
+                    _state.update { it.copy(progress = "Traduciendo $done de $total") }
+                }
+                if (source.length > TranslatorEngine.MAX_CHARS) {
+                    result += "\n\n[… se tradujeron los primeros ${TranslatorEngine.MAX_CHARS} caracteres …]"
+                }
+                _state.update {
+                    it.copy(
+                        text = result,
+                        original = source,
+                        translatedTo = targetName,
+                        busy = false,
+                        progress = "",
+                    )
+                }
+            } catch (e: OutOfMemoryError) {
+                _state.update { it.copy(busy = false, progress = "", error = "El texto es demasiado grande para traducirlo") }
+            } catch (e: Exception) {
+                val msg = e.message.orEmpty()
+                val friendly = when {
+                    msg.startsWith("No se pudo detectar") || msg.startsWith("El texto ya está") -> msg
+                    else -> "No se pudo traducir. La primera vez de cada idioma hace falta internet para descargarlo."
+                }
+                _state.update { it.copy(busy = false, progress = "", error = friendly) }
+            }
+        }
+    }
+
+    fun showOriginal() {
+        val original = _state.value.original ?: return
+        _state.update { it.copy(text = original, original = null, translatedTo = null) }
+    }
+
     // ---------- Escaneo con la cámara ----------
 
     /** Recibe las páginas escaneadas (imágenes), muestra la primera y extrae el texto de todas. */
@@ -133,7 +194,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val first = withContext(Dispatchers.IO) { loadBitmap(uris.first()) }
                 (_state.value.doc as? Doc.Pdf)?.source?.close()
-                _state.update { it.copy(doc = Doc.Img(first, "Escaneo de cámara"), text = "") }
+                _state.update {
+                    it.copy(doc = Doc.Img(first, "Escaneo de cámara"), text = "", original = null, translatedTo = null)
+                }
 
                 val sb = StringBuilder()
                 for ((i, u) in uris.withIndex()) {
@@ -175,7 +238,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     is Doc.Pdf -> extractPdf(doc)
                     is Doc.Plain -> _state.value.text
                 }
-                _state.update { it.copy(text = text.trim(), busy = false, progress = "") }
+                _state.update {
+                    it.copy(text = text.trim(), busy = false, progress = "", original = null, translatedTo = null)
+                }
             } catch (e: OutOfMemoryError) {
                 _state.update {
                     it.copy(busy = false, progress = "", error = "El archivo es demasiado grande para procesarlo")
