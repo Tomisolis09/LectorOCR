@@ -135,6 +135,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                     is Doc.Plain -> _state.value.text
                 }
                 _state.update { it.copy(text = text.trim(), busy = false, progress = "") }
+            } catch (e: OutOfMemoryError) {
+                _state.update {
+                    it.copy(busy = false, progress = "", error = "El archivo es demasiado grande para procesarlo")
+                }
             } catch (e: Exception) {
                 _state.update {
                     it.copy(busy = false, progress = "", error = e.message ?: "Error al extraer el texto")

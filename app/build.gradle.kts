@@ -67,7 +67,9 @@ android {
         // si no están definidos, usa los de prueba.
         release {
             isMinifyEnabled = false
-            if (canSign) signingConfig = signingConfigs.getByName("release")
+            // Con tu keystore: firma propia. Sin keystore: firma de depuración, para que el APK
+            // se pueda instalar igual (sirve para uso personal, NO para subir a Google Play).
+            signingConfig = if (canSign) signingConfigs.getByName("release") else signingConfigs.getByName("debug")
             manifestPlaceholders["admobAppId"] = adValue("ADMOB_APP_ID") ?: TEST_APP_ID
             buildConfigField("String", "ADMOB_BANNER_ID", "\"${adValue("ADMOB_BANNER_ID") ?: TEST_BANNER_ID}\"")
             buildConfigField(

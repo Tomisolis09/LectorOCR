@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hoja de documento con una línea de escaneo que la atraviesa. Zona segura: círculo de 66 dp centrado. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Hoja -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M36,29 L58,29 L72,43 L72,79 L36,79 Z" />
+    <!-- Esquina doblada -->
+    <path
+        android:fillColor="#BFE3D9"
+        android:pathData="M58,29 L58,43 L72,43 Z" />
+    <!-- Renglones de texto -->
+    <path
+        android:strokeColor="#1B6B5A"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M43,50 L54,50" />
+    <path
+        android:strokeColor="#1B6B5A"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M43,57 L65,57" />
+    <path
+        android:strokeColor="#1B6B5A"
+        android:strokeWidth="3.2"
+        android:strokeLineCap="round"
+        android:pathData="M43,71 L65,71" />
+    <!-- Línea de escaneo -->
+    <path
+        android:strokeColor="#FFB84D"
+        android:strokeWidth="3.6"
+        android:strokeLineCap="round"
+        android:pathData="M30,64 L78,64" />
+</vector>

@@ -39,7 +39,7 @@ Al terminar, el APK está en la pestaña **Actions → la ejecución → Artifac
 o por consola: `./gradlew assembleRelease`.
 
 ## Firmar el APK
-Un APK tiene que estar firmado para instalarse. Sin firma de release sale como `app-release-unsigned.apk`.
+Un APK tiene que estar firmado para instalarse. Si no cargás tu keystore, el APK sale firmado con una clave de depuración: **se instala y sirve para uso personal**, pero no se puede subir a Google Play, y si más adelante instalás uno firmado con tu keystore tenés que desinstalar el anterior primero. Para firmar con tu propia clave:
 
 1. **Crear el keystore (una sola vez):**
    ```bash
@@ -58,7 +58,7 @@ Un APK tiene que estar firmado para instalarse. Sin firma de release sale como `
 
 3. **Firmar en tu PC con Gradle:** definí las mismas variables antes de compilar:
    ```bash
-   export KEYSTORE_FILE=/ruta/lector-release.jks
+   export KEYSTORE_PATH=/ruta/lector-release.jks
    export KEYSTORE_PASSWORD=...
    export KEY_ALIAS=lector
    export KEY_PASSWORD=...
