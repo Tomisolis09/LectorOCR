@@ -23,14 +23,14 @@ import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
  * Publicidad con AdMob.
  *  - Banner fijo abajo (adaptable al ancho de la pantalla), siempre visible.
  *  - Anuncio a pantalla completa (imagen o video, según lo que entregue AdMob):
- *    uno cada 3 lecturas o escaneos, al terminar, nunca mientras se lee.
+ *    uno cada 2 lecturas, escaneos o traducciones, al terminar, nunca mientras se lee.
  *
  * Los IDs vienen de BuildConfig: en debug siempre son los de prueba de Google.
  */
 object Ads {
 
     /** Cada cuántas lecturas/escaneos sale el anuncio completo. */
-    private const val EVERY = 3
+    private const val EVERY = 2
 
     private var started = false
     private var loading = false
@@ -65,7 +65,7 @@ object Ads {
         )
     }
 
-    /** Llamar al terminar cada lectura o escaneo: cada 3 muestra el anuncio completo. */
+    /** Llamar al terminar cada lectura o escaneo: cada 2 muestra el anuncio completo. */
     fun onReading(activity: Activity) {
         readings++
         if (readings < EVERY) return
@@ -93,8 +93,9 @@ object Ads {
     }
 }
 
+/** Crea el banner una sola vez (por ancho de pantalla) y lo destruye al salir. */
 @Composable
-fun BannerAd(modifier: Modifier = Modifier) {
+fun rememberBannerView(): AdView {
     val context = LocalContext.current
     val widthDp = LocalConfiguration.current.screenWidthDp
     val adView = remember(widthDp) {
@@ -105,5 +106,11 @@ fun BannerAd(modifier: Modifier = Modifier) {
         }
     }
     DisposableEffect(adView) { onDispose { adView.destroy() } }
+    return adView
+}
+
+@Composable
+fun BannerAd(modifier: Modifier = Modifier) {
+    val adView = rememberBannerView()
     AndroidView(factory = { adView }, modifier = modifier)
 }

@@ -7,6 +7,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.view.ViewGroup
+import androidx.compose.ui.viewinterop.AndroidView
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -435,6 +437,7 @@ fun TextView(
         val byLine = remember(matches) { matches.groupBy({ it.line }, { it.start }) }
         val currentMatch = matches.getOrNull(current)
         val listState = rememberLazyListState()
+        val inlineAd = rememberBannerView()
         var showData by rememberSaveable { mutableStateOf(false) }
         var showLang by rememberSaveable { mutableStateOf(false) }
         val found by produceState(emptyList<FoundData>(), text) {
@@ -510,6 +513,16 @@ fun TextView(
                     itemsIndexed(lines) { i, line ->
                         Text(
                             highlight(line, byLine[i], q.length, currentMatch?.takeIf { it.line == i }?.start)
+                        )
+                    }
+                    // Banner al final del texto (lejos de los botones, para no molestar ni causar toques sin querer)
+                    item {
+                        AndroidView(
+                            factory = {
+                                (inlineAd.parent as? ViewGroup)?.removeView(inlineAd)
+                                inlineAd
+                            },
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         )
                     }
                 }

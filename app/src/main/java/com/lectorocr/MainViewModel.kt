@@ -172,6 +172,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         progress = "",
                     )
                 }
+                _readingDone.tryEmit(Unit)
             } catch (e: OutOfMemoryError) {
                 _state.update { it.copy(busy = false, progress = "", error = "El texto es demasiado grande para traducirlo") }
             } catch (e: Exception) {
