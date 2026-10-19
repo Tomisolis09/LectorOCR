@@ -36,6 +36,12 @@ Con **Traducir con la cámara** elegís el idioma, escaneás la hoja y se lee y 
 
 En la pestaña Texto, **Traducir** elige el idioma de destino (el de origen se detecta solo) con ML Kit, gratis y dentro del celular. Cada idioma se descarga una vez (hace falta internet esa primera vez); después funciona sin conexión. Traduce hasta 50.000 caracteres y **Ver original** vuelve al texto sin traducir.
 
+## Leer en voz alta
+En la pestaña Texto, **Leer en voz alta** usa la voz del celular (gratis, sin internet). Detecta el idioma del texto; si falta esa voz, se instala en Ajustes > Idioma > Salida de texto a voz. Se detiene al tocar **Detener** o al cambiar de pestaña.
+
+## Historial
+Cada lectura, escaneo o traducción se guarda en el celular (las últimas 30). El botón **Historial** (arriba) permite volver a abrirlas, borrarlas o vaciar todo. No se sube a ningún servidor.
+
 ## Correrlo en tu celular
 1. Abrí la carpeta en **Android Studio** y dejá que sincronice Gradle
    (si ofrece actualizar versiones de Gradle/AGP/Kotlin, aceptá; también genera `gradlew`).
@@ -97,8 +103,8 @@ Un APK tiene que estar firmado para instalarse. Si no cargás tu keystore, el AP
 Pasá el APK al celular y abrilo; Android te pedirá permitir "instalar apps de orígenes desconocidos" para ese gestor de archivos.
 
 ## Publicidad (AdMob)
-- **Banner** siempre fijo abajo y **anuncio a pantalla completa** (imagen o video, lo elige AdMob) una vez cada 3 lecturas o escaneos, al terminar (nunca mientras se lee). Para que salgan anuncios con video, en AdMob dejá el bloque del intersticial con formato «Imagen y video» (es el predeterminado).
-- Para cambiar cada cuántas lecturas sale, editá `EVERY` en `Ads.kt`.
+- **Banner** siempre fijo abajo y **anuncio a pantalla completa** (imagen o video, lo elige AdMob) una vez cada 2 lecturas, escaneos o traducciones, al terminar (nunca mientras se lee). Para que salgan anuncios con video, en AdMob dejá el bloque del intersticial con formato «Imagen y video» (es el predeterminado).
+- Además hay otro banner al final del texto extraído. Para cambiar cada cuántas lecturas sale, editá `EVERY` en `Ads.kt`.
 - Los builds **debug** usan siempre anuncios de prueba de Google. Los **release** usan tus IDs; si no los cargás, también salen de prueba.
 - En AdMob: registrá la app Android con el paquete `com.lectorocr` y creá dos bloques de anuncios (Banner e Intersticial). Vas a tener 3 IDs:
   - `ADMOB_APP_ID` (termina en `~número`)

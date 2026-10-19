@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import kotlin.math.max
 
 sealed interface Doc {
@@ -58,6 +59,53 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Se emite cada vez que termina una lectura de imagen/PDF o un escaneo (para la publicidad). */
     private val _readingDone = MutableSharedFlow<Unit>(extraBufferCapacity = 4)
     val readingDone: SharedFlow<Unit> = _readingDone
+
+    // ---------- Historial ----------
+
+    private val store = HistoryStore(File(app.filesDir, "history"))
+    private val _history = MutableStateFlow<List<HistoryItem>>(emptyList())
+    val history: StateFlow<List<HistoryItem>> = _history.asStateFlow()
+
+    init { refreshHistory() }
+
+    private fun refreshHistory() {
+        viewModelScope.launch { _history.value = withContext(Dispatchers.IO) { store.list() } }
+    }
+
+    private fun saveHistory(title: String, text: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { store.save(title, text) }
+            _history.value = withContext(Dispatchers.IO) { store.list() }
+        }
+    }
+
+    fun openHistory(id: Long) {
+        if (_state.value.busy) return
+        viewModelScope.launch {
+            val item = _history.value.firstOrNull { it.id == id }
+            val text = withContext(Dispatchers.IO) { store.load(id) }
+            if (item == null || text == null) {
+                _state.update { it.copy(error = "No se pudo abrir esa lectura") }
+                return@launch
+            }
+            (_state.value.doc as? Doc.Pdf)?.source?.close()
+            _state.value = UiState(doc = Doc.Plain(item.title, "Del historial"), text = text)
+        }
+    }
+
+    fun deleteHistory(id: Long) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { store.delete(id) }
+            _history.value = withContext(Dispatchers.IO) { store.list() }
+        }
+    }
+
+    fun clearHistory() {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { store.clear() }
+            _history.value = emptyList()
+        }
+    }
 
     private val resolver get() = getApplication<Application>().contentResolver
 
@@ -172,6 +220,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         progress = "",
                     )
                 }
+                saveHistory("${current.doc?.name ?: "Texto"} ($targetName)", result)
                 _readingDone.tryEmit(Unit)
             } catch (e: OutOfMemoryError) {
                 _state.update { it.copy(busy = false, progress = "", error = "El texto es demasiado grande para traducirlo") }
@@ -222,6 +271,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                         error = if (text.isBlank()) "No se detectó texto en el escaneo" else null,
                     )
                 }
+                saveHistory("Escaneo de cámara", text)
                 _readingDone.tryEmit(Unit)
                 // Traducir con la cámara: se escanea y se traduce enseguida
                 if (translateTo != null && text.isNotBlank()) translate(translateTo.tag, translateTo.name)
@@ -251,6 +301,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update {
                     it.copy(text = text.trim(), busy = false, progress = "", original = null, translatedTo = null)
                 }
+                saveHistory(doc.name, text.trim())
                 _readingDone.tryEmit(Unit)
             } catch (e: OutOfMemoryError) {
                 _state.update {

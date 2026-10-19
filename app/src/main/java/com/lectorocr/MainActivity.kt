@@ -50,6 +50,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
@@ -125,6 +127,8 @@ fun App(vm: MainViewModel) {
     val snackbar = remember { SnackbarHostState() }
     var confirmClear by rememberSaveable { mutableStateOf(false) }
     var showCamLang by rememberSaveable { mutableStateOf(false) }
+    var showHistory by rememberSaveable { mutableStateOf(false) }
+    val history by vm.history.collectAsStateWithLifecycle()
     var camLang by remember { mutableStateOf<Lang?>(null) }
 
     val openLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -198,6 +202,19 @@ fun App(vm: MainViewModel) {
         vm.readingDone.collect { (context as? Activity)?.let { Ads.onReading(it) } }
     }
 
+    if (showHistory) {
+        HistoryDialog(
+            items = history,
+            onOpen = {
+                showHistory = false
+                vm.openHistory(it)
+            },
+            onDelete = vm::deleteHistory,
+            onClearAll = vm::clearHistory,
+            onClose = { showHistory = false },
+        )
+    }
+
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
@@ -219,6 +236,7 @@ fun App(vm: MainViewModel) {
             TopAppBar(
                 title = { Text("Lector OCR") },
                 actions = {
+                    TextButton(onClick = { showHistory = true }) { Text("Historial") }
                     if (state.doc != null || state.text.isNotEmpty()) {
                         TextButton(onClick = { confirmClear = true }, enabled = !state.busy) { Text("Borrar") }
                     }
@@ -438,6 +456,9 @@ fun TextView(
         val currentMatch = matches.getOrNull(current)
         val listState = rememberLazyListState()
         val inlineAd = rememberBannerView()
+        val speaker = rememberSpeaker()
+        val scope = rememberCoroutineScope()
+        LaunchedEffect(text) { speaker.stop() }
         var showData by rememberSaveable { mutableStateOf(false) }
         var showLang by rememberSaveable { mutableStateOf(false) }
         val found by produceState(emptyList<FoundData>(), text) {
@@ -467,6 +488,16 @@ fun TextView(
                 Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                TextButton(onClick = {
+                    if (speaker.speaking) {
+                        speaker.stop()
+                    } else {
+                        scope.launch {
+                            val tag = runCatching { TranslatorEngine.detect(text.take(500)) }.getOrNull()
+                            speaker.speak(text, tag)
+                        }
+                    }
+                }) { Text(if (speaker.speaking) "Detener" else "Leer en voz alta") }
                 TextButton(onClick = { showLang = true }, enabled = !busy) { Text("Traducir") }
                 if (translatedTo != null) {
                     TextButton(onClick = onShowOriginal, enabled = !busy) { Text("Ver original") }
