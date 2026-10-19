@@ -34,7 +34,7 @@ El botón **Borrar** (arriba a la derecha) quita el documento y el texto, previa
 ## Traductor
 Con **Traducir con la cámara** elegís el idioma, escaneás la hoja y se lee y traduce de una vez.
 
-En la pestaña Texto, **Traducir** elige el idioma de destino (el de origen se detecta solo) con ML Kit, gratis y dentro del celular. Cada idioma se descarga una vez (hace falta internet esa primera vez); después funciona sin conexión. Traduce hasta 50.000 caracteres y **Ver original** vuelve al texto sin traducir.
+En la pestaña Texto, **Traducir** elige el idioma de destino (el de origen se detecta solo) con ML Kit, gratis y dentro del celular. Cada idioma se descarga una vez (hace falta internet esa primera vez); después funciona sin conexión. Antes de traducir vuelve a unir los renglones cortados del OCR y de los PDF (y las palabras partidas con guion), porque traducir renglón por renglón da frases sin sentido; los títulos, listas y tablas se dejan aparte. Traduce hasta 50.000 caracteres y **Ver original** vuelve al texto sin traducir.
 
 ## Leer en voz alta
 En la pestaña Texto, **Leer en voz alta** usa la voz del celular (gratis, sin internet). Detecta el idioma del texto; si falta esa voz, se instala en Ajustes > Idioma > Salida de texto a voz. Se detiene al tocar **Detener** o al cambiar de pestaña.

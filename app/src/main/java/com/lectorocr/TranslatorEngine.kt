@@ -65,11 +65,11 @@ object TranslatorEngine {
         )
         try {
             translator.downloadModelIfNeeded(DownloadConditions.Builder().build()).awaitTask()
-            val chunks = chunkText(text)
+            val chunks = reflowChunks(text)
             val out = ArrayList<String>(chunks.size)
             for ((i, c) in chunks.withIndex()) {
                 onProgress(i + 1, chunks.size)
-                out.add(if (c.text.isBlank()) c.text else translator.translate(c.text).awaitTask())
+                out.add(if (c.text.none { it.isLetter() }) c.text else translator.translate(c.text).awaitTask().trim())
             }
             return joinChunks(chunks, out)
         } finally {
